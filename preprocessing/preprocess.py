@@ -70,39 +70,70 @@ def apply_scaler(X, scaler):
 # 4. Preprocess one CV fold (leakage-free)
 # ------------------------------------------------------------
 
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+
 def preprocess_fold(
     X, y, train_idx, test_idx,
     winsorize=False
 ):
     """
-    Preprocess data inside a CV fold.
+    Preprocess data inside a CV fold with proper categorical handling.
     """
 
-    # ---- split ----
-    X_train = X.iloc[train_idx]
-    X_test  = X.iloc[test_idx]
-    y_train = y.iloc[train_idx]
-    y_test  = y.iloc[test_idx]
+    # --------------------
+    # split
+    # --------------------
+    X_train = X.iloc[train_idx].copy()
+    X_test  = X.iloc[test_idx].copy()
+    y_train = y.iloc[train_idx].copy()
+    y_test  = y.iloc[test_idx].copy()
 
-    # ---- winsorization (optional) ----
+    # --------------------
+    # categorical handling
+    # --------------------
+    nominal_cats = ['SEX', 'EDUCATION', 'MARRIAGE']
+    num_cols = [c for c in X.columns if c not in nominal_cats]
+
+    # --------------------
+    # winsorization (numeric only)
+    # --------------------
     if winsorize:
-        limits = fit_winsorizer(X_train)
-        X_train = apply_winsorizer(X_train, limits)
-        X_test  = apply_winsorizer(X_test, limits)
+        limits = fit_winsorizer(X_train[num_cols])
+        X_train[num_cols] = apply_winsorizer(X_train[num_cols], limits)
+        X_test[num_cols]  = apply_winsorizer(X_test[num_cols], limits)
     else:
         limits = None
 
-    # ---- scaling ----
-    scaler = fit_scaler(X_train)
-    X_train = apply_scaler(X_train, scaler)
-    X_test  = apply_scaler(X_test, scaler)
+    # --------------------
+    # scaling (numeric only)
+    # --------------------
+    scaler = StandardScaler()
+    X_train_num = scaler.fit_transform(X_train[num_cols])
+    X_test_num  = scaler.transform(X_test[num_cols])
+
+    # --------------------
+    # one-hot encoding (nominal only)
+    # --------------------
+    ohe = OneHotEncoder(
+        handle_unknown="ignore",
+        sparse_output=False
+    )
+
+    X_train_cat = ohe.fit_transform(X_train[nominal_cats])
+    X_test_cat  = ohe.transform(X_test[nominal_cats])
+
+    # --------------------
+    # concatenate
+    # --------------------
+    X_train_final = np.hstack([X_train_num, X_train_cat])
+    X_test_final  = np.hstack([X_test_num, X_test_cat])
 
     return {
-        "X_train": X_train,
+        "X_train": X_train_final,
         "y_train": y_train,
-        "X_test": X_test,
+        "X_test": X_test_final,
         "y_test": y_test,
         "scaler": scaler,
+        "ohe": ohe,
         "winsor_limits": limits
     }
-

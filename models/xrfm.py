@@ -47,12 +47,15 @@ def train_xrfm(
     )
     tr_idx, val_idx = next(splitter.split(X_train, y_train))
 
-    # Slice safely (pandas or numpy)
+    # Slice safely (pandas uses positional iloc to avoid index mismatches)
     if hasattr(X_train, "iloc"):
         X_tr, X_val = X_train.iloc[tr_idx], X_train.iloc[val_idx]
-        y_tr, y_val = y_train.iloc[tr_idx], y_train.iloc[val_idx]
     else:
         X_tr, X_val = X_train[tr_idx], X_train[val_idx]
+
+    if hasattr(y_train, "iloc"):
+        y_tr, y_val = y_train.iloc[tr_idx], y_train.iloc[val_idx]
+    else:
         y_tr, y_val = y_train[tr_idx], y_train[val_idx]
 
     # Convert to torch tensors

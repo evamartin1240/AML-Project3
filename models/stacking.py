@@ -52,9 +52,15 @@ def train_stacking(
         for fold_idx, (tr_idx, val_idx) in enumerate(cv.split(X_train, y_train), start=1):
             print(f"  Inner fold {fold_idx}/{n_splits}")
 
-            X_tr = X_train.iloc[tr_idx]
-            y_tr = y_train.iloc[tr_idx]
-            X_val = X_train.iloc[val_idx]
+            if hasattr(X_train, "iloc"):
+                X_tr = X_train.iloc[tr_idx]
+                y_tr = y_train.iloc[tr_idx]
+                X_val = X_train.iloc[val_idx]
+            else:
+                X_tr = X_train[tr_idx]
+                y_tr = y_train.iloc[tr_idx] if hasattr(y_train, "iloc") else y_train[tr_idx]
+                X_val = X_train[val_idx]
+
 
             # Train once per fold
             model, val_prob = train_fn(X_tr, y_tr, X_val)
